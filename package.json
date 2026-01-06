@@ -1,0 +1,9 @@
+{
+  "name": "lambda-auth",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.0",
+    "pg": "^8.11.0" 
+  }
+}
