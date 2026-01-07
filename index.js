@@ -32,8 +32,10 @@ exports.handler = async (event) => {
         const secret = process.env.JWT_SECRET || "minha-chave-secreta-super-segura";
         
         const token = jwt.sign({ 
-            sub: cpf, 
-            role: 'CLIENT' 
+            sub: cpf,
+            roles: ['ROLE_CLIENT'],
+            authorities: ['ROLE_CLIENT'],
+            iss: "oficina-auth"
         }, secret, { 
             expiresIn: '1h' 
         });
