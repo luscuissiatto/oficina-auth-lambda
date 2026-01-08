@@ -1,9 +1,14 @@
 const jwt = require('jsonwebtoken');
-// const { Client } = require('pg'); // Descomentar para conectar no banco real
+const { Client } = require('pg'); 
 
 exports.handler = async (event) => {
+    let dbClient;
+    
     try {
-        // 1. Receber o CPF do corpo da requisição
+        if (!event.body) {
+             return { statusCode: 400, body: JSON.stringify({ message: "Body vazio" }) };
+        }
+        
         const body = JSON.parse(event.body);
         const cpf = body.cpf;
 
@@ -14,21 +19,30 @@ exports.handler = async (event) => {
             };
         }
 
-        // 2. Validação do CPF (Aqui conectaria no Banco de Dados para ver se existe)
-        // Para o MVP inicial, vamos simular que qualquer CPF válido loga.
-        // TODO: Adicionar conexão com RDS para verificar se CPF existe na tabela 'clients'
-        
-        const userIsValid = true; // Simulação
+        dbClient = new Client({
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_NAME,
+            port: 5432,
+            ssl: { rejectUnauthorized: false }
+        });
 
-        if (!userIsValid) {
+        await dbClient.connect();
+
+        const query = 'SELECT id FROM clients WHERE document = $1';
+        const res = await dbClient.query(query, [cpf]);
+
+        if (res.rows.length === 0) {
+            await dbClient.end();
             return {
                 statusCode: 401,
-                body: JSON.stringify({ message: "CPF não cadastrado" })
+                body: JSON.stringify({ message: "CPF não cadastrado. Faça o cadastro primeiro." })
             };
         }
 
-        // 3. Gerar o Token JWT
-        // IMPORTANTE: A SECRET deve ser a mesma usada no Java Spring depois!
+        await dbClient.end();
+
         const secret = process.env.JWT_SECRET || "minha-chave-secreta-super-segura";
         
         const token = jwt.sign({ 
@@ -40,7 +54,6 @@ exports.handler = async (event) => {
             expiresIn: '1h' 
         });
 
-        // 4. Retornar o Token
         return {
             statusCode: 200,
             body: JSON.stringify({ 
@@ -51,10 +64,13 @@ exports.handler = async (event) => {
         };
 
     } catch (error) {
-        console.error(error);
+        console.error("Erro na Lambda:", error);
+        if (dbClient) {
+            await dbClient.end();
+        }
         return {
             statusCode: 500,
-            body: JSON.stringify({ message: "Erro interno no servidor de autenticação" })
+            body: JSON.stringify({ message: "Erro interno ao validar usuário", error: error.message })
         };
     }
 };
